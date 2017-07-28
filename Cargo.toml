@@ -1,0 +1,9 @@
+[package]
+name = "book_worm"
+version = "0.1.0"
+authors = ["Nick Benoit <nick.benoit14@gmail.com>"]
+
+[dependencies]
+postgres = "0.15"
+rocket = "0.3.0"
+rocket_codegen = "0.3.0"
