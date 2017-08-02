@@ -1,28 +1,42 @@
 
-/*
+
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
 extern crate rocket;
+extern crate rocket_contrib;
+#[macro_use] extern crate serde_json;
+#[macro_use] extern crate serde_derive;
+extern crate serde;
+
+use rocket_contrib::{Json, Value};
 
 #[cfg(test)] mod tests;
 
-#[get("/hello/<name>/<age>")]
-fn hello(name: String, age: u8) -> String {
-    format!("Hello, {} year old named {}!", age, name)
+#[derive(Serialize, Deserialize)]
+struct Interaction {
+  book_id: i32,
+  person: String,
+  comment: String,
 }
 
-#[get("/hello/<name>")]
-fn hi(name: String) -> String {
-    name
+#[post("/interactions", format = "application/json", data = "<interaction>")]
+fn create(interaction: Json<Interaction>) -> String {
+    String::from("Howdy")
 }
+
+//#[get("/hello/<name>")]
+//fn hi(name: String) -> String {
+//    name
+//}
 
 fn main() {
-    rocket::ignite().mount("/", routes![hello, hi]).launch();
+    rocket::ignite().mount("/", routes![create]).launch();
 }
 
-*/
 
+
+/*
 extern crate postgres;
 
 use postgres::{Connection, TlsMode};
@@ -58,3 +72,5 @@ TlsMode::None).unwrap();
         println!("Found person {}", person.name);
     }
 }
+
+*/
