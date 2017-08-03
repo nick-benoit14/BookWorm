@@ -1,5 +1,4 @@
 
-
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
@@ -13,25 +12,44 @@ use rocket_contrib::{Json, Value};
 
 #[cfg(test)] mod tests;
 
-#[derive(Serialize, Deserialize)]
-struct Interaction {
-  book_id: i32,
-  person: String,
-  comment: String,
+mod Db {
+  extern crate postgres;
+  use self::postgres::{Connection, TlsMode};
+  pub fn getConnection() -> Connection{
+   let conn = Connection::connect(
+       "postgres://nickbenoit@localhost:5432/book_worm_dev",
+       postgres::TlsMode::None).unwrap();
+   return conn;
+  }
 }
+
+mod Interaction {
+  #[derive(Serialize, Deserialize)]
+  pub struct Interaction {
+    book_id: Option<i32>,
+    person: String,
+    comment: String,
+  }
+
+
+  pub fn create(interaction: Interaction) {
+    //print!(interaction.to_string());
+    print!("HOWDY")
+  }
+
+}
+
+
 
 #[post("/interactions", format = "application/json", data = "<interaction>")]
-fn create(interaction: Json<Interaction>) -> String {
-    String::from("Howdy")
+fn create(interaction: Json<Interaction::Interaction>) -> Json<Interaction::Interaction>{
+ //   Interaction::create(interaction.into_inner());
+    interaction
 }
 
-//#[get("/hello/<name>")]
-//fn hi(name: String) -> String {
-//    name
-//}
 
 fn main() {
-    rocket::ignite().mount("/", routes![create]).launch();
+  rocket::ignite().mount("/", routes![create]).launch();
 }
 
 
