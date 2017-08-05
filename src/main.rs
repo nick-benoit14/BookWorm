@@ -12,10 +12,10 @@ use rocket_contrib::{Json, Value};
 
 #[cfg(test)] mod tests;
 
-mod Db {
+pub mod Db {
   extern crate postgres;
   use self::postgres::{Connection, TlsMode};
-  pub fn getConnection() -> Connection{
+  pub fn get_connection() -> Connection{
    let conn = Connection::connect(
        "postgres://nickbenoit@localhost:5432/book_worm_dev",
        postgres::TlsMode::None).unwrap();
@@ -23,7 +23,19 @@ mod Db {
   }
 }
 
-mod Interaction {
+mod person {
+
+  #[derive(Serialize, Deserialize)]
+  pub struct Person {
+    id: i32,
+    name: String
+  }
+}
+
+// TODO interaction hsould include other types
+mod interaction {
+  pub use Db;
+
   #[derive(Serialize, Deserialize)]
   pub struct Interaction {
     book_id: Option<i32>,
@@ -32,19 +44,23 @@ mod Interaction {
   }
 
 
-  pub fn create(interaction: Interaction) {
-    //print!(interaction.to_string());
-    print!("HOWDY")
-  }
+  pub fn create(interaction: Interaction) -> Interaction{
+   let conn = Db::get_connection();
+//   let result = conn.execute(
+//      "INSERT INTO interactions  (book_id, person_id, message) VALUES ($1, $2, $3)",
+//      &[&interaction.book_id, &me.data]
+//    ).unwrap();
 
+    interaction
+  }
 }
 
 
 
 #[post("/interactions", format = "application/json", data = "<interaction>")]
-fn create(interaction: Json<Interaction::Interaction>) -> Json<Interaction::Interaction>{
- //   Interaction::create(interaction.into_inner());
-    interaction
+fn create(interaction: Json<interaction::Interaction>) -> Json<interaction::Interaction>{
+  let result = interaction::create(interaction.into_inner());
+  Json(result)
 }
 
 
