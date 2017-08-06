@@ -23,7 +23,8 @@ pub mod Db {
   }
 }
 
-mod person {
+pub mod person {
+  pub use Db;
 
   #[derive(Serialize, Deserialize)]
   pub struct Person {
@@ -32,14 +33,26 @@ mod person {
   }
 }
 
-// TODO interaction hsould include other types
-mod interaction {
+pub mod book {
   pub use Db;
 
   #[derive(Serialize, Deserialize)]
+  pub struct Book {
+    id: i32,
+    title: String
+  }
+}
+
+// TODO interaction hsould include other types
+pub mod interaction {
+  pub use Db;
+  pub use person;
+  pub use book;
+
+  #[derive(Serialize, Deserialize)]
   pub struct Interaction {
-    book_id: Option<i32>,
-    person: String,
+    book: Option<book::Book>,
+    person: person::Person,
     comment: String,
   }
 
