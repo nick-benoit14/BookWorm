@@ -28,8 +28,8 @@ pub mod person {
 
   #[derive(Serialize, Deserialize)]
   pub struct Person {
-    id: i32,
-    name: String
+    pub id: i32,
+    pub name: String
   }
 }
 
@@ -38,21 +38,21 @@ pub mod book {
 
   #[derive(Serialize, Deserialize)]
   pub struct Book {
-    id: i32,
-    title: String
+    pub id: i32,
+    pub title: String
   }
 }
 
-// TODO interaction hsould include other types
 pub mod interaction {
   pub use Db;
-  pub use person;
-  pub use book;
+  pub use person::{Person};
+  pub use book::{Book};
 
   #[derive(Serialize, Deserialize)]
   pub struct Interaction {
-    book: Option<book::Book>,
-    person: person::Person,
+    id: Option<i32>,
+    book: Book,
+    person: Person,
     comment: String,
   }
 
@@ -66,6 +66,27 @@ pub mod interaction {
 
     interaction
   }
+
+  pub fn list() -> Vec<Interaction> {
+    let conn = Db::get_connection();
+    let mut result = Vec::new();
+    for row in &conn.query(
+      "SELECT * FROM interactions i \
+         INNER JOIN books on books.id=i.book_id \
+         INNER JOIN people on people.id=i.person_id;",
+      &[]
+     ).unwrap() {
+        let interaction  = Interaction {
+            id: row.get(0),
+            book: Book {id: row.get(4), title: row.get(5)},
+            person: Person {id: row.get(6), name: row.get(7)},
+            comment: row.get(3)
+        };
+        result.push(interaction);
+    }
+
+    return result;
+  }
 }
 
 
@@ -76,9 +97,15 @@ fn create(interaction: Json<interaction::Interaction>) -> Json<interaction::Inte
   Json(result)
 }
 
+#[get("/interactions", format = "application/json")]
+fn index() -> Json<Vec<interaction::Interaction>>{
+  let result = interaction::list();
+  Json(result)
+}
+
 
 fn main() {
-  rocket::ignite().mount("/", routes![create]).launch();
+  rocket::ignite().mount("/", routes![create, index]).launch();
 }
 
 
@@ -110,14 +137,6 @@ TlsMode::None).unwrap();
     };
     conn.execute("INSERT INTO person (name, data) VALUES ($1, $2)",
                  &[&me.name, &me.data]).unwrap();
-    for row in &conn.query("SELECT id, name, data FROM person", &[]).unwrap() {
-        let person = Person {
-            id: row.get(0),
-            name: row.get(1),
-            data: row.get(2),
-        };
-        println!("Found person {}", person.name);
-    }
 }
 
 */
