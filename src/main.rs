@@ -1,7 +1,3 @@
-// QUESTION: Is there a good way to create default struct
-//   Yes implement the default trait
-// https://stackoverflow.com/questions/19650265/is-there-a-faster-shorter-way-to-initialize-variables-in-a-rust-struct
-
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
@@ -15,7 +11,7 @@ use rocket_contrib::{Json, Value};
 
 //#[cfg(test)] mod tests; // TODO add tests
 
-pub mod Db {
+pub mod db {
   extern crate postgres;
   pub use self::postgres::{Connection, TlsMode};
   pub fn get_connection() -> Connection{
@@ -27,7 +23,7 @@ pub mod Db {
 }
 
 pub mod person {
-  pub use Db;
+  pub use db;
 
   #[derive(Serialize, Deserialize)]
   pub struct Person {
@@ -41,7 +37,7 @@ pub mod person {
     }
   }
 
- pub fn create(conn: &Db::Connection, person: Person) -> Person {
+ pub fn create(conn: &db::Connection, person: Person) -> Person {
    let stmt = conn
        .prepare("INSERT INTO people (name) VALUES ($1) RETURNING id")
        .unwrap();
@@ -53,7 +49,7 @@ pub mod person {
 }
 
 pub mod book {
-  pub use Db;
+  pub use db;
 
   #[derive(Serialize, Deserialize)]
   pub struct Book {
@@ -66,7 +62,7 @@ pub mod book {
       Book { id: None, title: String::new() }
     }
   }
-  pub fn create(conn: &Db::Connection, book: Book) -> Book {
+  pub fn create(conn: &db::Connection, book: Book) -> Book {
    let stmt = conn
        .prepare("INSERT INTO books (title) VALUES ($1) RETURNING id")
        .unwrap();
@@ -78,7 +74,7 @@ pub mod book {
 }
 
 pub mod interaction {
-  pub use Db;
+  pub use db;
   pub use person;
   pub use book;
 
@@ -101,14 +97,14 @@ pub mod interaction {
     }
   }
 
-  fn create_dependants<'a>(conn: &'a Db::Connection, interaction: Interaction) ->  Interaction {
-   let book = if(interaction.book.id.is_none()){
+  fn create_dependants<'a>(conn: &'a db::Connection, interaction: Interaction) ->  Interaction {
+   let book = if interaction.book.id.is_none() {
       book::create(conn, interaction.book)
    } else {
       interaction.book
    };
 
-   let person = if(interaction.person.id.is_none()){
+   let person = if interaction.person.id.is_none() {
       person::create(conn, interaction.person)
    } else {
       interaction.person
@@ -118,7 +114,7 @@ pub mod interaction {
 
 
   pub fn create(interaction: Interaction) -> Interaction{
-   let conn = Db::get_connection();
+   let conn = db::get_connection();
 
    let stmt = conn
      .prepare(
@@ -136,7 +132,7 @@ pub mod interaction {
   }
 
   pub fn list() -> Vec<Interaction> {
-    let conn = Db::get_connection();
+    let conn = db::get_connection();
     let mut result = Vec::new();
     for row in &conn.query(
       "SELECT * FROM interactions i \
