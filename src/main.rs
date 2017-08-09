@@ -41,8 +41,7 @@ pub mod person {
     }
   }
 
- pub fn create(person: Person) -> Person {
-   let conn = Db::get_connection();
+ pub fn create(conn: &Db::Connection, person: Person) -> Person {
    let stmt = conn
        .prepare("INSERT INTO people (name) VALUES ($1) RETURNING id")
        .unwrap();
@@ -67,14 +66,7 @@ pub mod book {
       Book { id: None, title: String::new() }
     }
   }
-  pub fn create(book: Book) -> Book {
-//   let conn = Db::get_connection();
-//   let result = conn.execute(
-//      "INSERT INTO book  (title) VALUES ($1)",
-//      &[&book.title]
-//    ).unwrap();
-
-   let conn = Db::get_connection();
+  pub fn create(conn: &Db::Connection, book: Book) -> Book {
    let stmt = conn
        .prepare("INSERT INTO books (title) VALUES ($1) RETURNING id")
        .unwrap();
@@ -109,31 +101,33 @@ pub mod interaction {
     }
   }
 
-  //TODO return new interaction
   fn create_dependants<'a>(conn: &'a Db::Connection, interaction: Interaction) ->  Interaction {
    let book = if(interaction.book.id.is_none()){
-      book::create(interaction.book)
+      book::create(conn, interaction.book)
    } else {
       interaction.book
    };
 
    let person = if(interaction.person.id.is_none()){
-      person::create(interaction.person)
+      person::create(conn, interaction.person)
    } else {
       interaction.person
    };
-   Interaction { ..Default::default() }
+   Interaction { book: book, person: person, ..interaction }
   }
 
 
   pub fn create(interaction: Interaction) -> Interaction{
    let conn = Db::get_connection();
+   let updated_interaction = create_dependants(&conn, interaction);
    let result = conn.execute(
       "INSERT INTO interactions  (book_id, person_id, comment) VALUES ($1, $2, $3)",
-      &[&interaction.book.id, &interaction.person.id, &interaction.comment]
-    ).unwrap();
-
-    interaction
+      &[
+      &updated_interaction.book.id,
+      &updated_interaction.person.id,
+      &updated_interaction.comment
+      ]).unwrap();
+    Interaction { ..Default::default() }
   }
 
   pub fn list() -> Vec<Interaction> {
