@@ -119,15 +119,20 @@ pub mod interaction {
 
   pub fn create(interaction: Interaction) -> Interaction{
    let conn = Db::get_connection();
+
+   let stmt = conn
+     .prepare(
+       "INSERT INTO interactions  (book_id, person_id, comment) VALUES ($1, $2, $3)")
+     .unwrap();
+
    let updated_interaction = create_dependants(&conn, interaction);
-   let result = conn.execute(
-      "INSERT INTO interactions  (book_id, person_id, comment) VALUES ($1, $2, $3)",
-      &[
-      &updated_interaction.book.id,
-      &updated_interaction.person.id,
-      &updated_interaction.comment
-      ]).unwrap();
-    Interaction { ..Default::default() }
+   let result = stmt.query(&[
+     &updated_interaction.book.id,
+     &updated_interaction.person.id,
+     &updated_interaction.comment
+   ]).unwrap();
+   let id = result.get(0).get(0);
+   Interaction { id: id, ..updated_interaction }
   }
 
   pub fn list() -> Vec<Interaction> {
