@@ -41,15 +41,15 @@ pub mod person {
     }
   }
 
-  //TODO figure out how to update id and return to create_dependencies
- pub fn create(person: &Person) -> Person {
+ pub fn create(person: Person) -> Person {
    let conn = Db::get_connection();
-   let result = conn.execute(
-      "INSERT INTO people  (name) VALUES ($1)",
-      &[&person.name]
-    ).unwrap();
-   print!(result);
-   Person { ..Default::default() } //TODO
+   let stmt = conn
+       .prepare("INSERT INTO people (name) VALUES ($1) RETURNING id")
+       .unwrap();
+   let result = stmt.query(&[&person.name]).unwrap();
+   let id = result.get(0).get(0);
+
+   Person { id: Some(id), name: person.name }
  }
 }
 
@@ -62,18 +62,26 @@ pub mod book {
     pub title: String
   }
 
-  pub fn create(book: &Book) -> Book {
-   let conn = Db::get_connection();
-   let result = conn.execute(
-      "INSERT INTO book  (title) VALUES ($1)",
-      &[&book.title]
-    ).unwrap();
+  impl Default for Book {
+    fn default() -> Book {
+      Book { id: None, title: String::new() }
+    }
+  }
+  pub fn create(book: Book) -> Book {
+//   let conn = Db::get_connection();
+//   let result = conn.execute(
+//      "INSERT INTO book  (title) VALUES ($1)",
+//      &[&book.title]
+//    ).unwrap();
 
-   //TODO use prepared statemetns
-   let stmt = try!(conn.prepare("INSERT INTO foo (bar) VALUES ('baz') RETURNING id"));
-   let id: i32 = try!(stmt.query(&[])).iter().next().unwrap().get(0);
-   // TODO
-   Book { id: Some(0), title: String::from("") }
+   let conn = Db::get_connection();
+   let stmt = conn
+       .prepare("INSERT INTO books (title) VALUES ($1) RETURNING id")
+       .unwrap();
+   let result = stmt.query(&[&book.title]).unwrap();
+   let id = result.get(0).get(0);
+
+   Book { id: Some(id), title: book.title }
   }
 }
 
@@ -90,16 +98,31 @@ pub mod interaction {
     comment: String,
   }
 
-  //TODO return new interaction
-  fn create_dependants<'a>(conn: &'a Db::Connection, interaction: &'a Interaction) -> &'a Interaction {
-  if interaction.book.id.is_none() {
-    let book = book::create(&interaction.book);
-   }
+  impl Default for Interaction {
+    fn default() -> Interaction {
+      Interaction {
+          id: None,
+          book: book::Book { ..Default::default() },
+          person: person::Person { .. Default::default() },
+          comment: String::new(),
+      }
+    }
+  }
 
-//   if interaction.person.id.is_none() {
-//     interaction.person = person::create(&interaction.person);
-//   }
-   interaction
+  //TODO return new interaction
+  fn create_dependants<'a>(conn: &'a Db::Connection, interaction: Interaction) ->  Interaction {
+   let book = if(interaction.book.id.is_none()){
+      book::create(interaction.book)
+   } else {
+      interaction.book
+   };
+
+   let person = if(interaction.person.id.is_none()){
+      person::create(interaction.person)
+   } else {
+      interaction.person
+   };
+   Interaction { ..Default::default() }
   }
 
 
