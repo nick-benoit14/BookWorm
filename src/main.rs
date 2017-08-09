@@ -122,7 +122,7 @@ pub mod interaction {
 
    let stmt = conn
      .prepare(
-       "INSERT INTO interactions  (book_id, person_id, comment) VALUES ($1, $2, $3)")
+       "INSERT INTO interactions  (book_id, person_id, comment) VALUES ($1, $2, $3) RETURNING id")
      .unwrap();
 
    let updated_interaction = create_dependants(&conn, interaction);
