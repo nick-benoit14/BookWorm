@@ -52,7 +52,6 @@ pub mod person {
        .unwrap();
    let result = stmt.query(&[&person.name]).unwrap();
    let id = result.get(0).get(0);
-
    Person { id: Some(id), name: person.name }
  }
 }
@@ -77,12 +76,12 @@ pub mod book {
        .unwrap();
    let result = stmt.query(&[&book.title]).unwrap();
    let id = result.get(0).get(0);
-
    Book { id: Some(id), title: book.title }
   }
 }
 
 pub mod interaction {
+  use std::fmt;
   pub use db;
   pub use person;
   pub use book;
@@ -106,7 +105,18 @@ pub mod interaction {
     }
   }
 
-  fn create_dependants<'a>(conn: &'a db::Connection, interaction: Interaction) ->  Interaction {
+  impl fmt::Debug for Interaction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+      write!(
+        f,
+        "Interaction {{ id: {:?}, book_id: {:?}, person_id: {:?}, comment: {:?}}}",
+        self.id, self.book.id, self.person.id, self.comment
+      )
+    }
+  }
+
+
+  fn create_dependants<'a>(conn: &'a db::Connection, interaction: Interaction) ->  Result<Interaction, ()> {
    let book = if interaction.book.id.is_none() {
       book::create(conn, interaction.book)
    } else {
@@ -118,7 +128,7 @@ pub mod interaction {
    } else {
       interaction.person
    };
-   Interaction { book: book, person: person, ..interaction }
+   Ok(Interaction { book: book, person: person, ..interaction })
   }
 
 
@@ -131,13 +141,21 @@ pub mod interaction {
      .unwrap();
 
    let updated_interaction = create_dependants(&conn, interaction);
-   let result = stmt.query(&[
-     &updated_interaction.book.id,
-     &updated_interaction.person.id,
-     &updated_interaction.comment
-   ]).unwrap();
-   let id = result.get(0).get(0);
-   Interaction { id: id, ..updated_interaction }
+   match updated_interaction {
+      Ok(v) => {
+       let result = stmt.query(&[
+         &v.book.id,
+         &v.person.id,
+         &v.comment
+       ]).unwrap();
+       let id = result.get(0).get(0);
+       Interaction { id: id, ..v }
+     }
+     Err(e) => {
+       println!("error::; {:?}", e);
+       Interaction { ..Default::default() }
+     }
+   }
   }
 
   pub fn list() -> Vec<Interaction> {
