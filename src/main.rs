@@ -22,6 +22,15 @@ pub mod db {
   }
 }
 
+pub mod token {
+  pub use db;
+
+  pub struct Token {
+    pub id: Option<i32>,
+    pub key: String,
+  }
+}
+
 pub mod person {
   pub use db;
 
@@ -151,6 +160,26 @@ pub mod interaction {
 
     return result;
   }
+
+  pub fn find(id: i32) -> Interaction {
+    let conn = db::get_connection();
+    let stmt = conn
+      .prepare(
+         "SELECT * FROM interactions i \
+         INNER JOIN books on books.id=i.book_id \
+         INNER JOIN people on people.id=i.person_id \
+         WHERE i.id=$1 LIMIT 1;",
+      ).unwrap();
+    let result = stmt.query(&[&id]).unwrap();
+    let row = result.get(0);
+    Interaction {
+         id: row.get(0),
+         book: book::Book {id: row.get(4), title: row.get(5)},
+         person: person::Person {id: row.get(6), name: row.get(7)},
+         comment: row.get(3)
+    }
+  }
+
 }
 
 
@@ -167,40 +196,14 @@ fn index() -> Json<Vec<interaction::Interaction>>{
   Json(result)
 }
 
+#[get("/interactions/<id>", format = "application/json")]
+fn show(id: i32) -> Json<interaction::Interaction>{
+  let result = interaction::find(id);
+  Json(result)
+}
+
 
 fn main() {
-  rocket::ignite().mount("/", routes![create, index]).launch();
+  rocket::ignite().mount("/", routes![create, index, show]).launch();
 }
 
-
-
-/*
-extern crate postgres;
-
-use postgres::{Connection, TlsMode};
-
-struct Person {
-    id: i32,
-    name: String,
-    data: Option<Vec<u8>>,
-}
-
-fn main() {
-    let conn = Connection::connect("postgres://nickbenoit@localhost:5432/book_worm_dev", // Connect to bookworm_dev
-TlsMode::None).unwrap();
-    conn.execute("CREATE TABLE person (
-                    id              SERIAL PRIMARY KEY,
-                    name            VARCHAR NOT NULL,
-                    data            BYTEA
-                  )", &[]).unwrap();
-
-    let me = Person {
-        id: 0,
-        name: "Steven".to_string(),
-        data: None,
-    };
-    conn.execute("INSERT INTO person (name, data) VALUES ($1, $2)",
-                 &[&me.name, &me.data]).unwrap();
-}
-
-*/
