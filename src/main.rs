@@ -9,10 +9,14 @@ extern crate serde;
 
 use rocket_contrib::{Json, Value};
 
+use rocket::response::{Failure};
+use rocket::http::Status;
+
+
 //#[cfg(test)] mod tests; // TODO add tests
 
 pub mod db {
-  extern crate postgres;
+  pub extern crate postgres;
   pub use self::postgres::{Connection, TlsMode};
   pub fn get_connection() -> Connection{
    let conn = Connection::connect(
@@ -46,13 +50,18 @@ pub mod person {
     }
   }
 
- pub fn create(conn: &db::Connection, person: Person) -> Person {
+ pub fn create(conn: &db::Connection, person: Person) -> Result<Person, db::postgres::Error> {
    let stmt = conn
        .prepare("INSERT INTO people (name) VALUES ($1) RETURNING id")
        .unwrap();
-   let result = stmt.query(&[&person.name]).unwrap();
-   let id = result.get(0).get(0);
-   Person { id: Some(id), name: person.name }
+   let result = stmt.query(&[&person.name]);
+   match result {
+     Ok(v) => {
+       let id = v.get(0).get(0);
+       Ok(Person { id: Some(id), name: person.name })
+     }
+     Err(e) => { Err(e) }
+   }
  }
 }
 
@@ -82,9 +91,11 @@ pub mod book {
 
 pub mod interaction {
   use std::fmt;
+
   pub use db;
   pub use person;
   pub use book;
+
 
   #[derive(Serialize, Deserialize)]
   pub struct Interaction {
@@ -93,6 +104,8 @@ pub mod interaction {
     person: person::Person,
     comment: String,
   }
+
+  type InteractionResult = Result<Interaction, db::postgres::Error>;
 
   impl Default for Interaction {
     fn default() -> Interaction {
@@ -116,15 +129,18 @@ pub mod interaction {
   }
 
 
-  fn create_dependants<'a>(conn: &'a db::Connection, interaction: Interaction) ->  Result<Interaction, ()> {
+  fn create_dependants<'a>(conn: &'a db::Connection, interaction: Interaction) -> InteractionResult {
    let book = if interaction.book.id.is_none() {
-      book::create(conn, interaction.book)
+     book::create(conn, interaction.book)
    } else {
-      interaction.book
+     interaction.book
    };
 
    let person = if interaction.person.id.is_none() {
-      person::create(conn, interaction.person)
+      match person::create(conn, interaction.person) {
+        Ok(v) => { v }
+        Err(e) => { return Err(e) }
+      }
    } else {
       interaction.person
    };
@@ -132,7 +148,7 @@ pub mod interaction {
   }
 
 
-  pub fn create(interaction: Interaction) -> Interaction{
+  pub fn create(interaction: Interaction) -> InteractionResult{
    let conn = db::get_connection();
 
    let stmt = conn
@@ -149,12 +165,9 @@ pub mod interaction {
          &v.comment
        ]).unwrap();
        let id = result.get(0).get(0);
-       Interaction { id: id, ..v }
+       Ok(Interaction { id: id, ..v })
      }
-     Err(e) => {
-       println!("error::; {:?}", e);
-       Interaction { ..Default::default() }
-     }
+     Err(e) => { Err(e) }
    }
   }
 
@@ -203,9 +216,14 @@ pub mod interaction {
 
 
 #[post("/interactions", format = "application/json", data = "<interaction>")]
-fn create(interaction: Json<interaction::Interaction>) -> Json<interaction::Interaction>{
+fn create(interaction: Json<interaction::Interaction>) -> Result<Json<interaction::Interaction>, Failure>{
   let result = interaction::create(interaction.into_inner());
-  Json(result)
+  match result {
+    Ok(v) => { Ok(Json(v)) }
+    Err() => {
+      Err(Failure(Status::BadRequest))
+    }
+  }
 }
 
 #[get("/interactions", format = "application/json")]
@@ -220,8 +238,9 @@ fn show(id: i32) -> Json<interaction::Interaction>{
   Json(result)
 }
 
-
 fn main() {
-  rocket::ignite().mount("/", routes![create, index, show]).launch();
+  rocket::ignite()
+    .mount("/", routes![create, index, show])
+    .launch();
 }
 

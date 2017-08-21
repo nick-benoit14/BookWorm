@@ -6,7 +6,7 @@ create table books(
 
 create table people(
   id SERIAL,
-  name varchar not null,
+  name varchar not null UNIQUE,
   primary key(id)
 );
 
