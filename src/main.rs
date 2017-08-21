@@ -220,7 +220,8 @@ fn create(interaction: Json<interaction::Interaction>) -> Result<Json<interactio
   let result = interaction::create(interaction.into_inner());
   match result {
     Ok(v) => { Ok(Json(v)) }
-    Err() => {
+    Err(e) => {
+      println!("{:?}", e);
       Err(Failure(Status::BadRequest))
     }
   }

@@ -15,5 +15,6 @@ create table interactions(
   book_id int not null,
   person_id int not null,
   comment text,
+  approved bool DEFAULT false,
   primary key(id)
 );
