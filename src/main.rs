@@ -6,11 +6,14 @@ extern crate rocket_contrib;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 extern crate serde;
+extern crate rocket_cors;
 
 use rocket_contrib::{Json, Value};
 
 use rocket::response::{Failure};
 use rocket::http::Status;
+use rocket::http::Method;
+use rocket_cors::{AllowedOrigins, AllowedHeaders};
 
 
 //#[cfg(test)] mod tests; // TODO add tests
@@ -103,6 +106,24 @@ pub mod interaction {
     book: book::Book,
     person: person::Person,
     comment: String,
+    approved: bool,
+  }
+
+  pub fn from_row(row: db::postgres::rows::Row) -> Interaction {
+    Interaction {
+      id: Some(row.get("id")),
+      book: book::Book {
+          id: Some(row.get("book_id")),
+          title: row.get("title")
+      },
+      person: person::Person {
+          id: Some(row.get("person_id")),
+          name: row.get("name")
+      },
+      comment: row.get("comment"),
+      approved: row.get("approved"),
+      ..Default::default()
+    }
   }
 
   type InteractionResult = Result<Interaction, db::postgres::Error>;
@@ -114,6 +135,7 @@ pub mod interaction {
           book: book::Book { ..Default::default() },
           person: person::Person { .. Default::default() },
           comment: String::new(),
+          approved: false,
       }
     }
   }
@@ -180,12 +202,7 @@ pub mod interaction {
          INNER JOIN people on people.id=i.person_id;",
       &[]
      ).unwrap() {
-        let interaction  = Interaction {
-            id: row.get(0),
-            book: book::Book {id: row.get(4), title: row.get(5)},
-            person: person::Person {id: row.get(6), name: row.get(7)},
-            comment: row.get(3)
-        };
+        let interaction = from_row(row);
         result.push(interaction);
     }
 
@@ -203,12 +220,7 @@ pub mod interaction {
       ).unwrap();
     let result = stmt.query(&[&id]).unwrap();
     let row = result.get(0);
-    Interaction {
-         id: row.get(0),
-         book: book::Book {id: row.get(4), title: row.get(5)},
-         person: person::Person {id: row.get(6), name: row.get(7)},
-         comment: row.get(3)
-    }
+    from_row(row)
   }
 
 }
@@ -240,8 +252,22 @@ fn show(id: i32) -> Json<interaction::Interaction>{
 }
 
 fn main() {
+    let (allowed_origins, failed_origins) = AllowedOrigins::some(
+      &["http://localhost:8080"]
+    );
+    assert!(failed_origins.is_empty());
+    // You can also deserialize this
+    let options = rocket_cors::Cors {
+      allowed_origins: allowed_origins,
+      allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
+      allowed_headers: AllowedHeaders::some(&["Authorization", "Accept"]),
+      allow_credentials: true,
+      ..Default::default()
+    };
+
   rocket::ignite()
     .mount("/", routes![create, index, show])
+    .attach(options)
     .launch();
 }
 
