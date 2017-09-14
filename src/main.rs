@@ -106,7 +106,7 @@ pub mod interaction {
     book: book::Book,
     person: person::Person,
     comment: String,
-    approved: bool,
+    approved: Option<bool>,
   }
 
   pub fn from_row(row: db::postgres::rows::Row) -> Interaction {
@@ -121,7 +121,7 @@ pub mod interaction {
           name: row.get("name")
       },
       comment: row.get("comment"),
-      approved: row.get("approved"),
+      approved: Some(row.get("approved")),
       ..Default::default()
     }
   }
@@ -135,7 +135,7 @@ pub mod interaction {
           book: book::Book { ..Default::default() },
           person: person::Person { .. Default::default() },
           comment: String::new(),
-          approved: false,
+          approved: Some(false),
       }
     }
   }
@@ -231,7 +231,9 @@ pub mod interaction {
 fn create(interaction: Json<interaction::Interaction>) -> Result<Json<interaction::Interaction>, Failure>{
   let result = interaction::create(interaction.into_inner());
   match result {
-    Ok(v) => { Ok(Json(v)) }
+    Ok(v) => { 
+      Ok(Json(v))
+    }
     Err(e) => {
       println!("{:?}", e);
       Err(Failure(Status::BadRequest))
@@ -256,11 +258,11 @@ fn main() {
       &["http://localhost:8080"]
     );
     assert!(failed_origins.is_empty());
-    // You can also deserialize this
+
     let options = rocket_cors::Cors {
       allowed_origins: allowed_origins,
-      allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
-      allowed_headers: AllowedHeaders::some(&["Authorization", "Accept"]),
+      allowed_methods: vec![Method::Get, Method::Post].into_iter().map(From::from).collect(),
+      allowed_headers: AllowedHeaders::some(&["Authorization", "Accept", "Format", "Content-Type"]),
       allow_credentials: true,
       ..Default::default()
     };
